@@ -5,6 +5,7 @@ import os
 import re
 import sys
 import traceback
+import types
 import urllib
 import urllib2
 
@@ -15,7 +16,7 @@ try:
 except ImportError:
     import simplejson as json
 
-__version__ = '0.1.0'
+__version__ = '0.1.1'
 
 EXCEPTIONAL_PROTOCOL_VERSION = 6
 EXCEPTIONAL_API_ENDPOINT = "http://api.getexceptional.com/api/errors"
@@ -61,12 +62,12 @@ class ExceptionalMiddleware(object):
         except AttributeError:
             pass
     
-    def _submit(self, exc):
+    def _submit(self, exc, environ):
         """Submit the actual exception to getexceptional
         """
         info = {}
         info.update(self.environment_info())
-        info.update(self.request_info(None))
+        info.update(self.request_info(environ))
         info.update(self.exception_info(exc, sys.exc_info()[2]))
 
         payload = self.compress(json.dumps(info))
@@ -87,9 +88,9 @@ class ExceptionalMiddleware(object):
         except Exception, e:
             try:
                 if self.active:
-                    self._submit(e)
-            except:
-                pass
+                    self._submit(e, environ)
+            except Exception, e2:
+                traceback.print_exc()
             response = Response()
             response.status_int = 500
             response.body = 'Datadog says: An error has occured.'
@@ -137,27 +138,43 @@ class ExceptionalMiddleware(object):
                     }
                 }
 
-    def request_info(self, request):
+    def request_info(self, environ):
         """
         Return a dictionary of information for a given request.
 
         This will be run once for every request.
         """
-        # FIXME stubbed out
-#         return {
-#                 "request": {
-#                     "session": dict(request.session),
-#                     "remote_ip": request.META["REMOTE_ADDR"],
-#                     "parameters": parameters,
-#                     "action": view.__name__,
-#                     "controller": view.__module__,
-#                     "url": request.build_absolute_uri(),
-#                     "request_method": request.method,
-#                     "headers": meta_to_http(request.META)
-#                     }
-#                 }
+        def _get_headers(env_dict):
+            "Headers are upper-cased"
+            h = {}
+            try:
+                for k in env_dict:
+                    if type(env_dict[k]) == types.StringType and k.isupper():
+                        h[k.replace("_", "-")] = env_dict[k]
+            except:
+                pass
+            finally:
+                return h
 
-        return {}
+        session = {}
+        beaker = environ.get("beaker.session", "")
+        for k in beaker:
+            session[k] = beaker[k]
+            
+        req_info = {
+             "request": {
+                 "session": session,
+                 "remote_ip": environ.get("REMOTE_ADDR", "Unknown"),
+                 "parameters": environ.get("pylons.routes_dict", "Unknown"),
+                 "action": environ.get("pylons.routes_dict").get("action"),
+                 "controller": str(environ["pylons.controller"].__class__),
+                 "url": environ.get("PATH_INFO", "Unknown"),
+                 "request_method": environ.get("REQUEST_METHOD", "Unknown"),
+                 "headers": _get_headers(environ),
+                 }
+             }
+
+        return req_info
 
     def exception_info(self, exception, tb, timestamp=None):
         backtrace = []
