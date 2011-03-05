@@ -114,7 +114,6 @@ class ExceptionalMiddleware(object):
 
     @memoize
     def environment_info(self):
-
         """
         Return a dictionary representing the server environment.
 
@@ -145,6 +144,19 @@ class ExceptionalMiddleware(object):
         This will be run once for every request.
         """
         # FIXME stubbed out
+#         return {
+#                 "request": {
+#                     "session": dict(request.session),
+#                     "remote_ip": request.META["REMOTE_ADDR"],
+#                     "parameters": parameters,
+#                     "action": view.__name__,
+#                     "controller": view.__module__,
+#                     "url": request.build_absolute_uri(),
+#                     "request_method": request.method,
+#                     "headers": meta_to_http(request.META)
+#                     }
+#                 }
+
         return {}
 
     def exception_info(self, exception, tb, timestamp=None):
