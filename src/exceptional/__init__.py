@@ -2,54 +2,74 @@ from cStringIO import StringIO
 import datetime
 import gzip
 import os
+import re
 import sys
 import traceback
 import urllib
 import urllib2
 
-from django.conf import settings
-from django.core.exceptions import MiddlewareNotUsed, ImproperlyConfigured
-from django.core.urlresolvers import resolve
-
-from djexceptional.utils import memoize, json_dumps, meta_to_http
-
+from pylons import config
+from webob import Request, Response
+try:
+    import json
+except ImportError:
+    import simplejson as json
 
 __version__ = '0.1.0'
 
 EXCEPTIONAL_PROTOCOL_VERSION = 6
 EXCEPTIONAL_API_ENDPOINT = "http://api.getexceptional.com/api/errors"
 
+def memoize(func):
+    """A simple memoize decorator (with no support for keyword arguments)."""
+
+    cache = {}
+    def wrapper(*args):
+        if args in cache:
+            return cache[args]
+        cache[args] = value = func(*args)
+        return value
+
+    wrapper.__name__ = func.__name__
+    wrapper.__doc__ = func.__doc__
+    if hasattr(func, '__module__'):
+        wrapper.__module__ = func.__module__
+    wrapper.clear = cache.clear
+
+    return wrapper
+
 
 class ExceptionalMiddleware(object):
-
     """
     Middleware to interface with the Exceptional service.
 
     Requires very little intervention on behalf of the user; you just need to
-    add `EXCEPTIONAL_API_KEY` to your Django settings.
+    add `exceptional.api_key` to your pylons settings.
     """
 
-    def __init__(self):
-        if settings.DEBUG:
-            raise MiddlewareNotUsed
+    def __init__(self, app, api_key):
+        self.app = app
+        self.active = False
 
         try:
-            self.api_key = settings.EXCEPTIONAL_API_KEY
+            self.api_key = api_key
+            self.api_endpoint = EXCEPTIONAL_API_ENDPOINT + "?" + urllib.urlencode({
+                    "api_key": self.api_key,
+                    "protocol_version": EXCEPTIONAL_PROTOCOL_VERSION
+                    })
+            self.active = True
         except AttributeError:
-            raise ImproperlyConfigured("You need to add an EXCEPTIONAL_API_KEY setting.")
-
-        self.api_endpoint = EXCEPTIONAL_API_ENDPOINT + "?" + urllib.urlencode({
-            "api_key": self.api_key,
-            "protocol_version": EXCEPTIONAL_PROTOCOL_VERSION
-            })
-
-    def process_exception(self, request, exc):
+            pass
+    
+    def _submit(self, exc):
+        """Submit the actual exception to getexceptional
+        """
         info = {}
         info.update(self.environment_info())
-        info.update(self.request_info(request))
+        info.update(self.request_info(None))
         info.update(self.exception_info(exc, sys.exc_info()[2]))
 
-        payload = self.compress(json_dumps(info))
+        payload = self.compress(json.dumps(info))
         req = urllib2.Request(self.api_endpoint, data=payload)
         req.headers['Content-Encoding'] = 'gzip'
         req.headers['Content-Type'] = 'application/json'
@@ -59,6 +79,22 @@ class ExceptionalMiddleware(object):
             conn.read()
         finally:
             conn.close()
+
+    def __call__(self, environ, start_response):
+        req = Request(environ)
+        try:
+            response = req.get_response(self.app)
+        except Exception, e:
+            try:
+                if self.active:
+                    self._submit(e)
+            except:
+                pass
+            response = Response()
+            response.status_int = 500
+            response.body = 'Datadog says: An error has occured.'
+        return response(environ, start_response)
+
 
     @staticmethod
     def compress(bytes):
@@ -89,50 +125,27 @@ class ExceptionalMiddleware(object):
 
         return {
                 "application_environment": {
-                    "framework": "django",
+                    "framework": "pylons",
                     "env": dict(os.environ),
                     "language": "python",
                     "language_version": sys.version.replace('\n', ''),
                     "application_root_directory": self.project_root()
                     },
                 "client": {
-                    "name": "django-exceptional",
+                    "name": "pylons-exceptional",
                     "version": __version__,
                     "protocol_version": EXCEPTIONAL_PROTOCOL_VERSION
                     }
                 }
 
     def request_info(self, request):
-
         """
         Return a dictionary of information for a given request.
 
         This will be run once for every request.
         """
-
-        # We have to re-resolve the request path here, because the information
-        # is not stored on the request.
-        view, args, kwargs = resolve(request.path)
-        for i, arg in enumerate(args):
-            kwargs[i] = arg
-
-        parameters = {}
-        parameters.update(kwargs)
-        parameters.update(request.POST.items())
-        parameters = self.filter_params(parameters)
-
-        return {
-                "request": {
-                    "session": dict(request.session),
-                    "remote_ip": request.META["REMOTE_ADDR"],
-                    "parameters": parameters,
-                    "action": view.__name__,
-                    "controller": view.__module__,
-                    "url": request.build_absolute_uri(),
-                    "request_method": request.method,
-                    "headers": meta_to_http(request.META)
-                    }
-                }
+        # FIXME stubbed out
+        return {}
 
     def exception_info(self, exception, tb, timestamp=None):
         backtrace = []
@@ -163,23 +176,18 @@ class ExceptionalMiddleware(object):
     def project_root(self):
 
         """
-        Return the root of the current Django project on the filesystem.
-
-        Looks for `settings.PROJECT_ROOT`; failing that, uses the directory
-        containing the current settings file.
+        Return the root of the current pylons project on the filesystem.
         """
 
-        if hasattr(settings, 'PROJECT_ROOT'):
-            return settings.PROJECT_ROOT
-
-        settings_file = sys.modules[settings.SETTINGS_MODULE].__file__
-        if settings_file.endswith(".pyc"):
-            return settings_file[:-1]
-        return settings_file
+        if "exceptional.root" in config.keys():
+            return config["exceptional.root"]
+        else:
+            return "/I/don/t/know"
 
     @staticmethod
     def filter_params(params):
-        """Filter sensitive information out of parameter dictionaries."""
+        """Filter sensitive information out of parameter dictionaries.
+        """
 
         for key in params.keys():
             if "password" in key:

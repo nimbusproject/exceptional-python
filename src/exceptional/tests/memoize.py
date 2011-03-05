@@ -1,9 +1,7 @@
-from django.test import TestCase
+import unittest
+from exceptional.utils import memoize
 
-from djexceptional.utils import memoize
-
-
-class MemoizeTest(TestCase):
+class MemoizeTest(unittest.TestCase):
 
     def test_no_args(self):
         """Test @memoize on functions without any arguments."""
@@ -81,3 +79,6 @@ class MemoizeTest(TestCase):
         self.assertEqual(increment_counter(), 2)
         self.assertEqual(increment_counter(), 2)
         self.assertEqual(len(counter), 2)
+
+if __name__ == '__main__':
+    unittest.main()

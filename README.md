@@ -1,30 +1,21 @@
-# `django-exceptional`
+# `pylons-exceptional`
 
-`django-exceptional` is a Django client for [Exceptional][], a service which
+`pylons-exceptional` is a pylons client for [Exceptional][], a service which
 tracks errors in your web apps.
 
   [exceptional]: http://getexceptional.com/
 
+It is a direct [adaptation][] from `django-exceptional`.
+
+  [adaptation]: https://github.com/zacharyvoase/django-exceptional
 
 ## Usage
 
 Install the app:
+    easy_install pylons-exceptional
+or
+    pip install pylons-exceptional
 
-    pip install django-exceptional
-
-Add the middleware to your MIDDLEWARE_CLASSES:
-
-    MIDDLEWARE_CLASSES = (
-        ...
-        'djexceptional.ExceptionalMiddleware',
-        ...
-    )
-
-Set up your Exceptional API keys in `settings.py`:
-
-    EXCEPTIONAL_API_KEY = '...'
-
-Done! Remember, the middleware will only log exceptions when `DEBUG` is off.
 
 
 ## (Un)license

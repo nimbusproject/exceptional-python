@@ -4,8 +4,12 @@
 import os
 import re
 
-from distutils.core import setup
-
+try:
+    from setuptools import setup, find_packages
+except ImportError:
+    from ez_setup import use_setuptools
+    use_setuptools()
+    from setuptools import setup, find_packages
 
 rel_file = lambda *args: os.path.join(os.path.dirname(os.path.abspath(__file__)), *args)
 
@@ -17,17 +21,19 @@ def read_from(filename):
         fp.close()
 
 def get_version():
-    data = read_from(rel_file('src', 'djexceptional', '__init__.py'))
+    data = read_from(rel_file('src', 'exceptional', '__init__.py'))
     return re.search(r"__version__ = '([^']+)'", data).group(1)
 
-
 setup(
-    name             = 'django-exceptional',
+    name             = 'pylons-exceptional',
     version          = get_version(),
-    author           = "Zachary Voase",
-    author_email     = "z@zacharyvoase.com",
-    url              = 'http://github.com/zacharyvoase/django-exceptional',
-    description      = "A Django client for Exceptional (getexceptional.com).",
-    packages         = ['djexceptional', 'djexceptional.tests'],
+    author           = "Alexis Le-Quoc",
+    author_email     = "alq@datadoghq.com",
+    url              = 'http://github.com/DataDog/pylons-exceptional',
+    description      = "A pylons client for Exceptional (getexceptional.com), ported from django-exceptional",
+    packages         = ['exceptional', 'exceptional.tests'],
     package_dir      = {'': 'src'},
+    install_requires=[
+        "Pylons>=1.0",
+        ],
 )
