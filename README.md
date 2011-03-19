@@ -1,4 +1,4 @@
-# `pylons-exceptional`
+# pylons-exceptional
 
 `pylons-exceptional` is a pylons client for [Exceptional][], a service which
 tracks errors in your web apps.
@@ -9,14 +9,41 @@ It is a direct [adaptation][] from `django-exceptional`.
 
   [adaptation]: https://github.com/zacharyvoase/django-exceptional
 
-## Usage
+## Get started in 3 steps
 
 Install the app:
     easy_install pylons-exceptional
 or
     pip install pylons-exceptional
 
+Store your API key in your application configuration:
+    # GetExceptional config
+    exceptional.root=%(here)s
+    exceptional.api_key=a_really_long_hex_key
 
+Configure the new error handler in your application (`config/middleware.py`):
+
+    if asbool(full_stack):
+        # Display error documents for 401, 403, 404 status codes (and
+        # 500 when debug is disabled)
+        if asbool(config['debug']):
+            app = ErrorHandler(app, global_conf, **config['pylons.errorware'])
+            app = StatusCodeRedirect(app)
+        else:
+            # Send error to getexceptional if we can
+            try:
+                from exceptional import ExceptionalMiddleware
+                app = ExceptionalMiddleware(app, config['exceptional.api_key'])
+            except:
+                import sys
+                print "ERROR: Cannot setup exceptional error reporting", sys.exc_info()
+                app = ErrorHandler(app, global_conf, **config['pylons.errorware'])
+            app = StatusCodeRedirect(app, [400, 401, 403, 404, 500])
+
+You are done.
+
+In this configuration `getexceptional` will only be triggered if you *don't*
+run in debug mode.
 
 ## (Un)license
 
