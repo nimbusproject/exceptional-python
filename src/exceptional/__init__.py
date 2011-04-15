@@ -16,7 +16,7 @@ try:
 except ImportError:
     import simplejson as json
 
-__version__ = '0.1.1'
+__version__ = '0.1.2'
 
 EXCEPTIONAL_PROTOCOL_VERSION = 6
 EXCEPTIONAL_API_ENDPOINT = "http://api.getexceptional.com/api/errors"
@@ -160,20 +160,24 @@ class ExceptionalMiddleware(object):
         beaker = environ.get("beaker.session", "")
         for k in beaker:
             session[k] = beaker[k]
-            
-        req_info = {
-             "request": {
-                 "session": session,
-                 "remote_ip": environ.get("REMOTE_ADDR", "Unknown"),
-                 "parameters": environ.get("pylons.routes_dict", "Unknown"),
-                 "action": environ.get("pylons.routes_dict").get("action"),
-                 "controller": str(environ["pylons.controller"].__class__),
-                 "url": environ.get("PATH_INFO", "Unknown"),
-                 "request_method": environ.get("REQUEST_METHOD", "Unknown"),
-                 "headers": _get_headers(environ),
-                 }
-             }
 
+        req_info = {}
+        try:
+            req_info = {
+                 "request": {
+                     "session": session,
+                     "remote_ip": environ.get("REMOTE_ADDR", "Unknown"),
+                     "parameters": environ.get("pylons.routes_dict", "Unknown"),
+                     "action": environ.get("pylons.routes_dict").get("action"),
+                     "controller": str(environ["pylons.controller"].__class__),
+                     "url": environ.get("PATH_INFO", "Unknown"),
+                     "request_method": environ.get("REQUEST_METHOD", "Unknown"),
+                     "headers": _get_headers(environ),
+                     }
+                 }
+        except:
+            # Do you best but don't crash
+            pass
         return req_info
 
     def exception_info(self, exception, tb, timestamp=None):
