@@ -31,7 +31,7 @@ setup(
     author_email     = "alq@datadoghq.com",
     url              = 'http://github.com/DataDog/pylons-exceptional',
     description      = "A pylons client for Exceptional (getexceptional.com), ported from django-exceptional",
-    packages         = ['exceptional', 'exceptional.tests'],
+    packages         = ['exceptional'],
     package_dir      = {'': 'src'},
     install_requires=[
         "Pylons>=1.0",

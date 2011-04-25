@@ -16,7 +16,7 @@ try:
 except ImportError:
     import simplejson as json
 
-__version__ = '0.1.2'
+__version__ = '0.1.3'
 
 EXCEPTIONAL_PROTOCOL_VERSION = 6
 EXCEPTIONAL_API_ENDPOINT = "http://api.getexceptional.com/api/errors"
@@ -61,7 +61,7 @@ class ExceptionalMiddleware(object):
             self.active = True
         except AttributeError:
             pass
-    
+
     def _submit(self, exc, environ):
         """Submit the actual exception to getexceptional
         """
@@ -77,23 +77,27 @@ class ExceptionalMiddleware(object):
 
         conn = urllib2.urlopen(req)
         try:
-            conn.read()
+            resp = conn.read()
         finally:
-            conn.close()
+            if conn is not None:
+                conn.close()
 
     def __call__(self, environ, start_response):
         req = Request(environ)
+        response = Response()
         try:
             response = req.get_response(self.app)
         except Exception, e:
+            error = traceback.format_exc()
             try:
                 if self.active:
                     self._submit(e, environ)
-            except Exception, e2:
-                traceback.print_exc()
-            response = Response()
+            except:
+                error2 = traceback.format_exc()
+                error = "%s\nthen submission to getexceptional failed:\n%s" % (error, error2)
             response.status_int = 500
-            response.body = 'Datadog says: An error has occured.'
+            response.body = "An error has occured; trace follows.\n%s" % error
+
         return response(environ, start_response)
 
 
