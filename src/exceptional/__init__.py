@@ -16,7 +16,7 @@ try:
 except ImportError:
     import simplejson as json
 
-__version__ = '0.1.3'
+__version__ = '0.1.4'
 
 EXCEPTIONAL_PROTOCOL_VERSION = 6
 EXCEPTIONAL_API_ENDPOINT = "http://api.getexceptional.com/api/errors"
@@ -65,19 +65,21 @@ class ExceptionalMiddleware(object):
     def _submit(self, exc, environ):
         """Submit the actual exception to getexceptional
         """
-        info = {}
-        info.update(self.environment_info())
-        info.update(self.request_info(environ))
-        info.update(self.exception_info(exc, sys.exc_info()[2]))
-
-        payload = self.compress(json.dumps(info))
-        req = urllib2.Request(self.api_endpoint, data=payload)
-        req.headers['Content-Encoding'] = 'gzip'
-        req.headers['Content-Type'] = 'application/json'
-
-        conn = urllib2.urlopen(req)
         try:
+            info = {}
+            info.update(self.environment_info())
+            info.update(self.request_info(environ))
+            info.update(self.exception_info(exc, sys.exc_info()[2]))
+
+            payload = self.compress(json.dumps(info))
+            req = urllib2.Request(self.api_endpoint, data=payload)
+            req.headers['Content-Encoding'] = 'gzip'
+            req.headers['Content-Type'] = 'application/json'
+
+            conn = urllib2.urlopen(req)
             resp = conn.read()
+        except Exception, e:
+            raise Exception("Cannot submit %s because of %s" % (info, e), e)
         finally:
             if conn is not None:
                 conn.close()
