@@ -65,8 +65,10 @@ class ExceptionalMiddleware(object):
     def _submit(self, exc, environ):
         """Submit the actual exception to getexceptional
         """
+        info = {}
+        conn = None
+
         try:
-            info = {}
             info.update(self.environment_info())
             info.update(self.request_info(environ))
             info.update(self.exception_info(exc, sys.exc_info()[2]))
