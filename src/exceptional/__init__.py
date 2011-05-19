@@ -16,7 +16,7 @@ try:
 except ImportError:
     import simplejson as json
 
-__version__ = '0.1.5'
+__version__ = '0.1.6'
 
 EXCEPTIONAL_PROTOCOL_VERSION = 6
 EXCEPTIONAL_API_ENDPOINT = "http://api.getexceptional.com/api/errors"
@@ -164,10 +164,16 @@ class ExceptionalMiddleware(object):
             finally:
                 return h
 
+        # Process the session
         session = {}
         beaker = environ.get("beaker.session", "")
         for k in beaker:
-            session[k] = beaker[k]
+            try:
+                # Can it be json'ed?
+                json.dumps(beaker[k])
+                session[k] = beaker[k]
+            except:
+                "Ignore this session field"
 
         req_info = {}
         try:
@@ -186,6 +192,7 @@ class ExceptionalMiddleware(object):
         except:
             # Do you best but don't crash
             pass
+
         return req_info
 
     def exception_info(self, exception, tb, timestamp=None):
