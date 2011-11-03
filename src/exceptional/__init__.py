@@ -1,6 +1,7 @@
 from cStringIO import StringIO
 import datetime
 import gzip
+import logging
 import os
 import re
 import sys
@@ -16,7 +17,7 @@ try:
 except ImportError:
     import simplejson as json
 
-__version__ = '0.1.6'
+__version__ = '0.2.0'
 
 EXCEPTIONAL_PROTOCOL_VERSION = 6
 EXCEPTIONAL_API_ENDPOINT = "http://api.getexceptional.com/api/errors"
@@ -241,3 +242,55 @@ class ExceptionalMiddleware(object):
             if "password" in key:
                 del params[key]
         return params
+
+
+class ExceptionalLogHandler(logging.Handler):
+    """Handler for reporting to Exceptional
+
+    The way you'll want to use it in code:
+
+        import logging
+
+        log = logging.getLogger("mylog")
+        # ... <snip> all the other handlers you're adding to your logger... #
+        exceptional_handler = ExceptionalLogHandler(api_key, debug_mode)
+        exceptional_handler.setLevel(logging.CRITICAL)
+        log.addHandler(exceptional_handler)
+
+    After that, whenever you log something critical() or fatal() in your logger,
+    ExceptionalLogHandler will report the exception being handled.
+
+    I've disabled the ability to log errors in the process of trying to hit
+    Exceptional. It's too easy for people to pass in the logger they're using,
+    not set the Handler level high enough, and get caught in an infinite loop.
+    But it can we re-enabled by removing the commented portions below.
+    """
+
+    def __init__(self, api_key, debug_mode=False): # , log=None):
+        """API key is the key to the Exceptional service and should be in the
+        dogweb.ini config file. If debug is True, we'll just output to local
+        logs and not really report things to Exceptional"""
+        logging.Handler.__init__(self)
+        self._api_key = api_key
+        self._debug_mode = debug_mode
+
+        # self._log = log if log else logging
+
+    def emit(self, record):
+        if self._debug_mode:
+            # self._log.info("ExceptionalLogHandler in debug mode, not reporting")
+            pass
+
+        if not self._debug_mode:
+            try:
+                exceptional = ExceptionalMiddleware(None, self._api_key)
+                if exceptional.active:
+                    # make an extra version of this that takes things implicitly
+                    e = sys.exc_info()[1]
+                    exceptional._submit(e, os.environ)
+            except:
+                    # self._log.warning("ExceptionalLogHandler: Error submitting exception to getexceptional")
+                    # self._log.warning(traceback.format_exc())                
+                    pass
+
+
