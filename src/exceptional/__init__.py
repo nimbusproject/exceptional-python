@@ -17,7 +17,7 @@ try:
 except ImportError:
     import simplejson as json
 
-__version__ = '0.2.0'
+__version__ = '0.2.1'
 
 EXCEPTIONAL_PROTOCOL_VERSION = 6
 EXCEPTIONAL_API_ENDPOINT = "http://api.getexceptional.com/api/errors"
@@ -266,13 +266,14 @@ class ExceptionalLogHandler(logging.Handler):
     But it can we re-enabled by removing the commented portions below.
     """
 
-    def __init__(self, api_key, debug_mode=False): # , log=None):
+    def __init__(self, api_key, debug_mode=False, append_log_messages=False): # , log=None):
         """API key is the key to the Exceptional service and should be in the
         dogweb.ini config file. If debug is True, we'll just output to local
         logs and not really report things to Exceptional"""
         logging.Handler.__init__(self)
         self._api_key = api_key
         self._debug_mode = debug_mode
+        self.append_log_messages = append_log_messages
 
         # self._log = log if log else logging
 
@@ -284,13 +285,17 @@ class ExceptionalLogHandler(logging.Handler):
         if not self._debug_mode:
             try:
                 exceptional = ExceptionalMiddleware(None, self._api_key)
+
                 if exceptional.active:
                     # make an extra version of this that takes things implicitly
                     e = sys.exc_info()[1]
+                    if self.append_log_messages:
+                        e.args += record.message,
                     exceptional._submit(e, os.environ)
             except:
-                    # self._log.warning("ExceptionalLogHandler: Error submitting exception to getexceptional")
-                    # self._log.warning(traceback.format_exc())                
-                    pass
+                # self._log.warning("ExceptionalLogHandler: Error submitting exception to getexceptional")
+                # self._log.warning(traceback.format_exc())
+                # print traceback.format_exc()
+                pass
 
 
