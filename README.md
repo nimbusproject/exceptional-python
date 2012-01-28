@@ -1,4 +1,4 @@
-# pylons-exceptional
+# exceptional-python
 
 `exceptional-python` is a python client for [Exceptional][], a service which
 tracks errors in your web apps.
