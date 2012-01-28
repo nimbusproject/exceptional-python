@@ -4,6 +4,8 @@
 tracks errors in your web apps.
 
   [exceptional]: http://getexceptional.com
+  
+It is adapted from `pylons-exceptional` by removing dependencies to `pylons`.
 
 ## (Un)license
 
