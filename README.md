@@ -5,6 +5,8 @@ tracks errors in your web apps.
 
   [exceptional]: http://getexceptional.com
 
+It is adapted from `pylons-exceptional` by removing dependencies to `pylons`.
+
 ## Usage
 
 Send exception directly
@@ -28,8 +30,6 @@ or, use log handler
       1/0
     except:
       logger.error('oops!')
-  
-It is adapted from `pylons-exceptional` by removing dependencies to `pylons`.
 
 ## (Un)license
 
