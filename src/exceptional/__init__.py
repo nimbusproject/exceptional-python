@@ -3,15 +3,12 @@ import datetime
 import gzip
 import logging
 import os
-import re
 import sys
 import traceback
 import types
 import urllib
 import urllib2
 
-from pylons import config
-from webob import Request, Response
 try:
     import json
 except ImportError:
@@ -22,10 +19,12 @@ __version__ = '0.2.1'
 EXCEPTIONAL_PROTOCOL_VERSION = 6
 EXCEPTIONAL_API_ENDPOINT = "http://api.getexceptional.com/api/errors"
 
+
 def memoize(func):
     """A simple memoize decorator (with no support for keyword arguments)."""
 
     cache = {}
+    
     def wrapper(*args):
         if args in cache:
             return cache[args]
@@ -41,7 +40,7 @@ def memoize(func):
     return wrapper
 
 
-class ExceptionalMiddleware(object):
+class Exceptional(object):
     """
     Middleware to interface with the Exceptional service.
 
@@ -49,8 +48,7 @@ class ExceptionalMiddleware(object):
     add `exceptional.api_key` to your pylons settings.
     """
 
-    def __init__(self, app, api_key):
-        self.app = app
+    def __init__(self, api_key):
         self.active = False
 
         try:
@@ -63,7 +61,7 @@ class ExceptionalMiddleware(object):
         except AttributeError:
             pass
 
-    def _submit(self, exc, environ):
+    def submit(self, exc, environ):
         """Submit the actual exception to getexceptional
         """
         info = {}
@@ -71,7 +69,6 @@ class ExceptionalMiddleware(object):
 
         try:
             info.update(self.environment_info())
-            info.update(self.request_info(environ))
             info.update(self.exception_info(exc, sys.exc_info()[2]))
 
             payload = self.compress(json.dumps(info))
@@ -86,25 +83,6 @@ class ExceptionalMiddleware(object):
         finally:
             if conn is not None:
                 conn.close()
-
-    def __call__(self, environ, start_response):
-        req = Request(environ)
-        response = Response()
-        try:
-            response = req.get_response(self.app)
-        except Exception, e:
-            error = traceback.format_exc()
-            try:
-                if self.active:
-                    self._submit(e, environ)
-            except:
-                error2 = traceback.format_exc()
-                error = "%s\nthen submission to getexceptional failed:\n%s" % (error, error2)
-            response.status_int = 500
-            response.body = "An error has occured; trace follows.\n%s" % error
-
-        return response(environ, start_response)
-
 
     @staticmethod
     def compress(bytes):
@@ -147,55 +125,6 @@ class ExceptionalMiddleware(object):
                     }
                 }
 
-    def request_info(self, environ):
-        """
-        Return a dictionary of information for a given request.
-
-        This will be run once for every request.
-        """
-        def _get_headers(env_dict):
-            "Headers are upper-cased"
-            h = {}
-            try:
-                for k in env_dict:
-                    if type(env_dict[k]) == types.StringType and k.isupper():
-                        h[k.replace("_", "-")] = env_dict[k]
-            except:
-                pass
-            finally:
-                return h
-
-        # Process the session
-        session = {}
-        beaker = environ.get("beaker.session", "")
-        for k in beaker:
-            try:
-                # Can it be json'ed?
-                json.dumps(beaker[k])
-                session[k] = beaker[k]
-            except:
-                "Ignore this session field"
-
-        req_info = {}
-        try:
-            req_info = {
-                 "request": {
-                     "session": session,
-                     "remote_ip": environ.get("REMOTE_ADDR", "Unknown"),
-                     "parameters": environ.get("pylons.routes_dict", "Unknown"),
-                     "action": environ.get("pylons.routes_dict").get("action"),
-                     "controller": str(environ["pylons.controller"].__class__),
-                     "url": environ.get("PATH_INFO", "Unknown"),
-                     "request_method": environ.get("REQUEST_METHOD", "Unknown"),
-                     "headers": _get_headers(environ),
-                     }
-                 }
-        except:
-            # Do you best but don't crash
-            pass
-
-        return req_info
-
     def exception_info(self, exception, tb, timestamp=None):
         backtrace = []
         for tb_part in traceback.format_tb(tb):
@@ -228,10 +157,7 @@ class ExceptionalMiddleware(object):
         Return the root of the current pylons project on the filesystem.
         """
 
-        if "exceptional.root" in config.keys():
-            return config["exceptional.root"]
-        else:
-            return "/I/don/t/know"
+        return os.path.dirname(__file__)
 
     @staticmethod
     def filter_params(params):
@@ -284,18 +210,16 @@ class ExceptionalLogHandler(logging.Handler):
 
         if not self._debug_mode:
             try:
-                exceptional = ExceptionalMiddleware(None, self._api_key)
+                exceptional = Exceptional(self._api_key)
 
                 if exceptional.active:
                     # make an extra version of this that takes things implicitly
                     e = sys.exc_info()[1]
                     if self.append_log_messages:
                         e.args += record.message,
-                    exceptional._submit(e, os.environ)
+                    exceptional.submit(e, os.environ)
             except:
                 # self._log.warning("ExceptionalLogHandler: Error submitting exception to getexceptional")
                 # self._log.warning(traceback.format_exc())
                 # print traceback.format_exc()
                 pass
-
-
