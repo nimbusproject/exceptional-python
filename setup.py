@@ -25,15 +25,12 @@ def get_version():
     return re.search(r"__version__ = '([^']+)'", data).group(1)
 
 setup(
-    name             = 'pylons-exceptional',
+    name             = 'exceptional-python',
     version          = get_version(),
-    author           = "Alexis Le-Quoc",
-    author_email     = "alq@datadoghq.com",
-    url              = 'http://github.com/DataDog/pylons-exceptional',
-    description      = "A pylons client for Exceptional (getexceptional.com), ported from django-exceptional",
+    author           = "Cenk Alti",
+    author_email     = "cenkalti@gmail.com",
+    url              = 'https://github.com/cenkalti/exceptional-python',
+    description      = "A python client for Exceptional (getexceptional.com), ported from pylons-exceptional",
     packages         = ['exceptional'],
-    package_dir      = {'': 'src'},
-    install_requires=[
-        "Pylons>=1.0",
-        ],
+    package_dir      = {'': 'src'}
 )
