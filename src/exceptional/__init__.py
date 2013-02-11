@@ -200,6 +200,23 @@ class ExceptionalLogHandler(logging.Handler):
 
         # self._log = log if log else logging
 
+    def get_exception_class(self, classname):
+        """get_exception_class
+
+        If a user logs an error that does not have an exception associated
+        with it, we create a new Exception class named after the log level
+        name.
+
+        For example:
+
+        >>> levelname = "ERROR"
+        >>> ErrException = self.get_exception_class(levelname)
+        >>> e = ErrException()
+        >>> print e.__class__.__name__
+        'ERROR'
+        """
+        return type(classname, (Exception, ), {})
+
     def emit(self, record):
         if self._debug_mode:
             # self._log.info("ExceptionalLogHandler in debug mode, not reporting")
@@ -211,7 +228,11 @@ class ExceptionalLogHandler(logging.Handler):
 
                 if exceptional.active:
                     # make an extra version of this that takes things implicitly
+
                     e = sys.exc_info()[1]
+                    if e is None:
+                        Exp = self.get_exception_class(record.levelname)
+                        e = Exp()
                     if self.append_log_messages:
                         e.args += record.message,
 
