@@ -67,7 +67,7 @@ class Exceptional(object):
         conn = None
 
         try:
-            info.update(self.environment_info())
+            info.update(self.environment_info(environ))
             info.update(self.exception_info(exc, sys.exc_info()[2]))
 
             payload = self.compress(json.dumps(info))
@@ -99,26 +99,22 @@ class Exceptional(object):
         finally:
             stream.close()
 
-    @memoize
-    def environment_info(self):
+    def environment_info(self, environ):
         """
         Return a dictionary representing the server environment.
-
-        The idea is that the result of this function will rarely (if ever)
-        change for a given app instance. Ergo, the result can be cached between
-        requests.
         """
+        if environ is None:
+            environ = os.environ
 
         return {
                 "application_environment": {
-                    "framework": "pylons",
-                    "env": dict(os.environ),
+                    "env": dict(environ),
                     "language": "python",
                     "language_version": sys.version.replace('\n', ''),
                     "application_root_directory": self.project_root()
                     },
                 "client": {
-                    "name": "pylons-exceptional",
+                    "name": "exceptional-python",
                     "version": __version__,
                     "protocol_version": EXCEPTIONAL_PROTOCOL_VERSION
                     }
@@ -191,13 +187,15 @@ class ExceptionalLogHandler(logging.Handler):
     But it can we re-enabled by removing the commented portions below.
     """
 
-    def __init__(self, api_key, debug_mode=False, append_log_messages=False): # , log=None):
+    def __init__(self, api_key, debug_mode=False, append_log_messages=False,
+            environment=True): # , log=None):
         """API key is the key to the Exceptional service and should be in the
         dogweb.ini config file. If debug is True, we'll just output to local
         logs and not really report things to Exceptional"""
         logging.Handler.__init__(self)
         self._api_key = api_key
         self._debug_mode = debug_mode
+        self._environment = environment
         self.append_log_messages = append_log_messages
 
         # self._log = log if log else logging
@@ -216,7 +214,11 @@ class ExceptionalLogHandler(logging.Handler):
                     e = sys.exc_info()[1]
                     if self.append_log_messages:
                         e.args += record.message,
-                    exceptional.submit(e, os.environ)
+
+                    if self._environment:
+                        exceptional.submit(e, os.environ)
+                    else:
+                        exceptional.submit(e, {})
             except:
                 # self._log.warning("ExceptionalLogHandler: Error submitting exception to getexceptional")
                 # self._log.warning(traceback.format_exc())
