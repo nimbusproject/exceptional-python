@@ -17,8 +17,7 @@ except ImportError:
 __version__ = '0.2.1'
 
 EXCEPTIONAL_PROTOCOL_VERSION = 6
-EXCEPTIONAL_API_ENDPOINT = "http://api.getexceptional.com/api/errors"
-
+EXCEPTIONAL_API_ENDPOINT = "http://api.exceptional.io/api/errors"
 
 def memoize(func):
     """A simple memoize decorator (with no support for keyword arguments)."""
